@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube コメント全件取得ツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Hiragino Sans", "Meiryo", sans-serif;
+      background: #f7f8fa;
+      color: #1a1a2e;
+      line-height: 1.7;
+    }
+
+    /* ヘッダー */
+    header {
+      background: linear-gradient(135deg, #5e35b1 0%, #7c3aed 100%);
+      color: #fff;
+      padding: 64px 24px 56px;
+      text-align: center;
+    }
+    header .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 4px 14px;
+      margin-bottom: 20px;
+    }
+    header h1 {
+      font-size: clamp(24px, 5vw, 40px);
+      font-weight: 700;
+      margin-bottom: 16px;
+      letter-spacing: -0.01em;
+    }
+    header p {
+      font-size: 16px;
+      opacity: 0.88;
+      max-width: 560px;
+      margin: 0 auto 32px;
+    }
+    .btn-dl {
+      display: inline-block;
+      background: #fff;
+      color: #5e35b1;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      transition: opacity .2s;
+    }
+    .btn-dl:hover { opacity: 0.88; }
+
+    /* セクション共通 */
+    section {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 56px 24px;
+    }
+    section + section {
+      border-top: 1px solid #e8eaf0;
+    }
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 28px;
+      color: #1a1a2e;
+    }
+    h2 span {
+      color: #7c3aed;
+      margin-right: 8px;
+    }
+
+    /* 機能カード */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .feature-card {
+      background: #fff;
+      border: 1px solid #e8eaf0;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .feature-card .icon {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+    .feature-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #1a1a2e;
+    }
+    .feature-card p {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    /* サンプル出力テーブル */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid #e8eaf0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #fff;
+    }
+    thead tr {
+      background: #7c3aed;
+      color: #fff;
+    }
+    thead th {
+      padding: 12px 14px;
+      text-align: left;
+      font-weight: 600;
+      white-space: nowrap;
+      letter-spacing: 0.02em;
+    }
+    tbody tr:nth-child(even) { background: #f9f8ff; }
+    tbody td {
+      padding: 11px 14px;
+      border-top: 1px solid #eee;
+      color: #333;
+      vertical-align: top;
+    }
+    .td-comment {
+      max-width: 320px;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .td-mono {
+      font-family: monospace;
+      font-size: 11px;
+      color: #888;
+      white-space: nowrap;
+    }
+    .table-note {
+      font-size: 12px;
+      color: #888;
+      margin-top: 10px;
+      text-align: right;
+    }
+
+    /* 仕様テーブル */
+    .spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #e8eaf0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .spec-table th {
+      background: #f3f0ff;
+      color: #5e35b1;
+      font-weight: 700;
+      padding: 12px 18px;
+      text-align: left;
+      width: 140px;
+      border-top: 1px solid #e8eaf0;
+    }
+    .spec-table td {
+      padding: 12px 18px;
+      border-top: 1px solid #e8eaf0;
+      color: #333;
+    }
+
+    /* 技術スタック */
+    .stack-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .stack-tag {
+      background: #f3f0ff;
+      color: #5e35b1;
+      border: 1px solid #d4c5f9;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 16px;
+    }
+
+    /* GUIプレビュー */
+    .gui-section {
+      background: linear-gradient(160deg, #1a0a2e 0%, #2d1b4e 100%);
+      padding: 56px 24px;
+      text-align: center;
+    }
+    .gui-section h2 {
+      color: #fff;
+      margin-bottom: 36px;
+    }
+    .gui-section h2 span { color: #e040fb; }
+
+    .window-frame {
+      display: inline-block;
+      width: 100%;
+      max-width: 520px;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+      text-align: left;
+    }
+    /* Windowsタイトルバー */
+    .win-titlebar {
+      background: #1e0f36;
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      gap: 8px;
+    }
+    .win-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+    .win-dot.close  { background: #ff5f57; }
+    .win-dot.min    { background: #febc2e; }
+    .win-dot.expand { background: #28c840; }
+    .win-title-text {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: #9a7cc0;
+      letter-spacing: 0.03em;
+      margin-right: 36px;
+    }
+
+    /* アプリ本体 */
+    .app-body {
+      background: #2D1B4E;
+      font-family: "Yu Gothic UI", "Meiryo", sans-serif;
+    }
+    .app-pinktop {
+      height: 4px;
+      background: #FF4081;
+    }
+    .app-heading {
+      text-align: center;
+      padding: 14px 0 10px;
+      font-size: 15px;
+      font-weight: bold;
+      color: #fff;
+      letter-spacing: 0.03em;
+    }
+    .app-divider {
+      height: 1px;
+      background: #3D2266;
+      margin: 0 20px;
+    }
+    .app-form {
+      padding: 18px 28px 22px;
+    }
+    .app-label {
+      font-size: 10px;
+      font-weight: bold;
+      color: #F3B8FF;
+      margin-bottom: 5px;
+      display: block;
+    }
+    .app-input-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .app-input {
+      flex: 1;
+      background: #3D2266;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 11px;
+      color: #C9A8E0;
+      font-family: monospace;
+      letter-spacing: 0.1em;
+    }
+    .app-input-url {
+      display: block;
+      width: 100%;
+      background: #3D2266;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 20px;
+      font-family: inherit;
+    }
+    .app-toggle {
+      background: #3D2266;
+      border: none;
+      border-radius: 4px;
+      padding: 0 10px;
+      font-size: 10px;
+      color: #C9A8E0;
+      cursor: default;
+      white-space: nowrap;
+    }
+    .app-run-btn {
+      display: block;
+      margin: 0 auto;
+      background: #E040FB;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 28px;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      cursor: default;
+    }
+    .app-log-area {
+      padding: 14px 28px 18px;
+    }
+    .app-log-label {
+      font-size: 10px;
+      font-weight: bold;
+      color: #F3B8FF;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .app-log-box {
+      background: #3D2266;
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-family: "Consolas", monospace;
+      font-size: 10px;
+      color: #C9A8E0;
+      line-height: 1.8;
+      min-height: 120px;
+    }
+    .app-log-box .log-accent { color: #E040FB; }
+    .app-log-box .log-ok     { color: #69ff99; }
+    .app-log-box .log-muted  { color: #7a5a9a; }
+    .app-pinkbottom {
+      height: 4px;
+      background: #FF4081;
+    }
+
+    /* フッター */
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 12px;
+      color: #aaa;
+      border-top: 1px solid #e8eaf0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<header>
+  <div class="badge">Windows デスクトップアプリ</div>
+  <h1>YouTube コメント全件取得ツール</h1>
+  <p>API キーと動画 URL を入力するだけ。コメントを全件取得して Excel に自動出力します。</p>
+</header>
+
+<!-- GUIプレビュー -->
+<div class="gui-section">
+  <h2><span>🖥</span>画面イメージ</h2>
+  <div class="window-frame">
+    <!-- タイトルバー -->
+    <div class="win-titlebar">
+      <span class="win-dot close"></span>
+      <span class="win-dot min"></span>
+      <span class="win-dot expand"></span>
+      <span class="win-title-text">YouTube コメント取得ツール</span>
+    </div>
+    <!-- アプリ本体 -->
+    <div class="app-body">
+      <div class="app-pinktop"></div>
+      <div class="app-heading">YouTube コメント取得ツール</div>
+      <div class="app-divider"></div>
+      <div class="app-form">
+        <span class="app-label">API キー</span>
+        <div class="app-input-row">
+          <div class="app-input">••••••••••••••••••••••••••••••••••••••</div>
+          <div class="app-toggle">表示</div>
+        </div>
+        <span class="app-label">YouTube URL</span>
+        <div class="app-input-url">https://www.youtube.com/watch?v=T9aRN5JkmL8</div>
+        <button class="app-run-btn">▶&nbsp;&nbsp;取得開始</button>
+      </div>
+      <div class="app-divider"></div>
+      <div class="app-log-area">
+        <span class="app-log-label">進捗ログ</span>
+        <div class="app-log-box">
+          <span class="log-muted">[09:54:18]</span> 開始<br>
+          <span class="log-muted">&nbsp;&nbsp;URL&nbsp;&nbsp;&nbsp;&nbsp; :</span> https://www.youtube.com/watch?v=T9aRN5...<br>
+          <span class="log-muted">&nbsp;&nbsp;動画ID&nbsp; :</span> T9aRN5JkmL8<br>
+          <span class="log-muted">&nbsp;&nbsp;─────────────────────────</span><br>
+          &nbsp;&nbsp;取得中: <span class="log-accent">100</span> 件...<br>
+          &nbsp;&nbsp;取得中: <span class="log-accent">200</span> 件...<br>
+          &nbsp;&nbsp;取得中: <span class="log-accent">300</span> 件...<br>
+          &nbsp;&nbsp;取得完了: 計 <span class="log-accent">334</span> 件<br>
+          &nbsp;&nbsp;<span class="log-ok">保存完了</span>: comments_T9aRN5JkmL8_20260502.xlsx
+        </div>
+      </div>
+      <div class="app-pinkbottom"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 機能一覧 -->
+<section>
+  <h2><span>⚡</span>主な機能</h2>
+  <div class="features">
+    <div class="feature-card">
+      <div class="icon">🔑</div>
+      <h3>シンプルな操作</h3>
+      <p>API キーと YouTube URL を入力して「取得開始」を押すだけ。複雑な設定は不要です。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">📦</div>
+      <h3>コメント全件取得</h3>
+      <p>ページネーションを自動処理し、コメントを漏れなく全件取得。取得件数はリアルタイムで表示。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">📊</div>
+      <h3>Excel 出力</h3>
+      <p>7カラム（コメントID / 投稿者名 / 日時 / 本文 / いいね数 / 返信数）で整形出力。列幅も自動調整。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">💾</div>
+      <h3>API キー自動保存</h3>
+      <p>入力した API キーをローカルに保存。次回起動時に自動で復元されます。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🔗</div>
+      <h3>複数 URL 形式に対応</h3>
+      <p>通常の動画・短縮 URL（youtu.be）・Shorts の 3 形式すべてに対応。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">📦</div>
+      <h3>exe 配布可能</h3>
+      <p>PyInstaller で単体 exe に変換済み。Python 不要で納品できます。</p>
+    </div>
+  </div>
+</section>
+
+<!-- サンプル出力 -->
+<section>
+  <h2><span>📋</span>出力サンプル（実データ）</h2>
+  <div style="background:#f3f0ff; border-left: 4px solid #7c3aed; border-radius: 6px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; color: #333; line-height: 1.7;">
+    以下は、実際にこのツールを動かしてテストした出力結果です。<br>
+    テストに使用した動画：<a href="https://www.youtube.com/watch?v=T9aRN5JkmL8" target="_blank" rel="noopener" style="color: #5e35b1; font-weight: 600; word-break: break-all;">https://www.youtube.com/watch?v=T9aRN5JkmL8</a>
+  </div>
+  <div style="margin-bottom: 24px;">
+    <a class="btn-dl" href="sample_output.xlsx" download>📥 サンプル出力ファイルをダウンロード</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>コメントID</th>
+          <th>投稿者名</th>
+          <th>投稿日時</th>
+          <th>コメント本文</th>
+          <th>いいね数</th>
+          <th>返信数</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-mono">UgzTyEXM1PNP...</td>
+          <td>@AmandaLloyd-no5jf</td>
+          <td class="td-mono">2026-04-27</td>
+          <td class="td-comment">Square 0?</td>
+          <td>0</td>
+          <td>0</td>
+        </tr>
+        <tr>
+          <td class="td-mono">UgyK8IX1SsEg...</td>
+          <td>@__Patrick</td>
+          <td class="td-mono">2026-04-21</td>
+          <td class="td-comment">Claude is amazing. It has helped me in ways that human beings have not. The future isn't just putting on a "smart hat" and copy / pasting output...</td>
+          <td>0</td>
+          <td>0</td>
+        </tr>
+        <tr>
+          <td class="td-mono">Ugza7Y-a1oNV...</td>
+          <td>@黄凯琳-i4b</td>
+          <td class="td-mono">2026-03-27</td>
+          <td class="td-comment">seems a lot, but feel like nothing after hearing</td>
+          <td>0</td>
+          <td>0</td>
+        </tr>
+        <tr>
+          <td class="td-mono">Ugz8WD5KhDl6...</td>
+          <td>@edwardbarnes75</td>
+          <td class="td-mono">2026-03-22</td>
+          <td class="td-comment">Stop trying overly complicate this.. prompt engineering in essence is simple, it's just difficult to make the prompt complex enough...</td>
+          <td>0</td>
+          <td>0</td>
+        </tr>
+        <tr>
+          <td class="td-mono">UgwmpH7Dm8Ke...</td>
+          <td>@Nokia-j3x</td>
+          <td class="td-mono">2026-03-22</td>
+          <td class="td-comment">I want to pick Dr. Askell's brain on philosophy. I believe she embeds empathy into Claude.</td>
+          <td>0</td>
+          <td>0</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="table-note">※ 上記は実際の取得データから抜粋（全 334 件）。ファイル全体は上部のボタンからダウンロードできます。</p>
+</section>
+
+<!-- 動作環境・仕様 -->
+<section>
+  <h2><span>⚙️</span>動作環境・仕様</h2>
+  <table class="spec-table">
+    <tr><th>対応 OS</th><td>Windows 10 / 11</td></tr>
+    <tr><th>実行形式</th><td>単体 exe（Python インストール不要）／ Python スクリプト（3.9 以上）</td></tr>
+    <tr><th>必要なもの</th><td>YouTube Data API v3 の API キー（Google Cloud Console で無料取得）</td></tr>
+    <tr><th>API 制限</th><td>無料枠（1 日 10,000 ユニット）で通常利用は十分</td></tr>
+    <tr><th>出力形式</th><td>.xlsx（Excel）/ 列幅自動調整・ヘッダー色付き</td></tr>
+    <tr><th>対応 URL</th><td>youtu.be / youtube.com/watch / youtube.com/shorts</td></tr>
+  </table>
+</section>
+
+<!-- 技術スタック -->
+<section>
+  <h2><span>🛠</span>技術スタック</h2>
+  <div class="stack-list">
+    <span class="stack-tag">Python 3.9+</span>
+    <span class="stack-tag">Tkinter（GUI）</span>
+    <span class="stack-tag">YouTube Data API v3</span>
+    <span class="stack-tag">google-api-python-client</span>
+    <span class="stack-tag">openpyxl</span>
+    <span class="stack-tag">PyInstaller（exe 化）</span>
+  </div>
+</section>
+
+<footer>
+  <p>このページは開発実績のサンプルとして公開しています。</p>
+</footer>
+
+</body>
+</html>
